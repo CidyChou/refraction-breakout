@@ -1,0 +1,138 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover" />
+  <meta name="theme-color" content="#070a11" />
+  <title>折射突围 · Canvas Prototype</title>
+  <link rel="stylesheet" href="./styles.css" />
+</head>
+<body>
+  <main class="app-shell">
+    <section class="game-frame" id="gameFrame">
+      <canvas id="game" aria-label="折射突围游戏画布"></canvas>
+
+      <button class="sound-toggle" id="soundToggle" type="button" aria-label="切换音效" aria-pressed="true">SFX ON</button>
+      <button class="gm-toggle" id="gmToggle" type="button" aria-label="打开 GM 测试工具">GM</button>
+
+      <aside class="gm-panel" id="gmPanel" aria-hidden="true">
+        <header class="gm-header">
+          <div><span>DEV TOOL</span><strong>GM TEST CONSOLE</strong></div>
+          <button id="gmClose" type="button" aria-label="关闭 GM 工具">×</button>
+        </header>
+        <div class="gm-scroll">
+          <section class="gm-section">
+            <div class="gm-section-title"><span>RUN CONTROL</span><em id="gmRunStatus">WAVE 1</em></div>
+            <div class="gm-action-grid">
+              <button data-gm="kill-wave">清空本波</button>
+              <button data-gm="trigger-upgrade">立即升级</button>
+              <button data-gm="restore-core">恢复 CORE</button>
+              <button data-gm="clear-bullets">清空子弹</button>
+              <button data-gm="pause" id="gmPauseBtn">暂停游戏</button>
+              <button data-gm="invincible" id="gmInvincibleBtn">核心无敌</button>
+            </div>
+            <label class="gm-inline"><span>跳转波次</span><input id="gmWaveInput" type="number" min="1" max="999" value="10"><button id="gmJumpWave" type="button">GO</button></label>
+            <label class="gm-inline"><span>增加 XP</span><input id="gmXpInput" type="number" min="1" max="999" value="10"><button id="gmAddXp" type="button">+XP</button></label>
+          </section>
+
+          <section class="gm-section">
+            <div class="gm-section-title"><span>PLAYER PARAM</span><em>LIVE</em></div>
+            <label class="gm-inline"><span>Fire CD</span><input id="gmCdInput" type="number" min="0.05" max="3" step="0.05" value="0.60"><button id="gmSetCd" type="button">SET</button></label>
+            <label class="gm-inline"><span>Bounce</span><input id="gmBounceInput" type="number" min="0" max="20" value="1"><button id="gmSetBounce" type="button">SET</button></label>
+            <label class="gm-inline"><span>Time Scale</span><select id="gmTimeScale"><option value="0.5">0.5×</option><option value="1" selected>1×</option><option value="2">2×</option><option value="4">4×</option></select><button id="gmResetBuild" type="button">RESET BUILD</button></label>
+            <div class="gm-action-grid compact">
+              <button id="gmMaxWalls" type="button">墙 Buff MAX</button>
+              <button id="gmMaxBounce" type="button">反弹 +5</button>
+            </div>
+          </section>
+
+          <section class="gm-section">
+            <div class="gm-section-title"><span>SKILL LAB</span><em>CLICK TO +1</em></div>
+            <div class="gm-skill-list" id="gmSkillList"></div>
+          </section>
+
+          <section class="gm-section">
+            <div class="gm-section-title"><span>ENEMY SPAWNER</span><em>EXTRA UNIT</em></div>
+            <div class="gm-spawn-row">
+              <select id="gmEnemyType">
+                <option value="grunt">Grunt</option><option value="shield">Shield</option><option value="spinner">Spinner</option>
+                <option value="splitter">Splitter</option><option value="pulse">Pulse</option><option value="warden">Warden</option><option value="drifter">Drifter</option>
+              </select>
+              <button id="gmSpawnEnemy" type="button">SPAWN</button>
+            </div>
+          </section>
+        </div>
+        <footer class="gm-footer"><span>F2 / ` TOGGLE</span><span>TEST BUILD ONLY</span></footer>
+      </aside>
+
+      <div class="hud top-hud" id="hud">
+        <div class="hud-card score-card">
+          <span class="hud-label">SCORE</span>
+          <strong id="scoreValue">000000</strong>
+        </div>
+
+        <div class="hud-center">
+          <div class="wave-pill"><span>WAVE</span><strong id="waveValue">1</strong></div>
+          <div class="xp-track"><i id="xpFill"></i></div>
+        </div>
+
+        <div class="hud-card core-card">
+          <span class="hud-label">CORE</span>
+          <div class="core-dots" id="coreDots"></div>
+        </div>
+      </div>
+
+      <div class="side-badge left-badge">
+        <span>LEFT WALL</span>
+        <strong id="slowWallLevel">REFLECT · DMG</strong>
+      </div>
+      <div class="side-badge right-badge">
+        <span>RIGHT WALL</span>
+        <strong id="burnWallLevel">REFLECT · DMG</strong>
+      </div>
+
+      <div class="combat-readout" id="combatReadout">
+        <span id="cdValue">CD 0.60s</span>
+        <span class="dot">•</span>
+        <span id="bounceValue">BOUNCE 1</span>
+        <span class="dot">•</span>
+        <span id="damageValue">DIRECT 30% · REFLECT 170%</span>
+      </div>
+
+      <div class="banner" id="banner"></div>
+
+      <section class="screen-overlay visible" id="titleScreen">
+        <div class="eyebrow">CANVAS COMBAT PROTOTYPE</div>
+        <h1>折射突围</h1>
+        <p class="subtitle">直射只是保底，真正的输出来自反弹。</p>
+        <div class="legend-row">
+          <div class="legend-chip slow"><b>反弹墙</b><span>初始只提供高额增伤</span></div>
+          <div class="legend-chip burn"><b>属性镀层</b><span>局内升级解锁减速 / 燃烧</span></div>
+        </div>
+        <button class="primary-btn" id="startBtn">开始突围</button>
+        <p class="microcopy">鼠标移动 / 手指拖动调整发射角度 · 自动发射</p>
+      </section>
+
+      <section class="screen-overlay" id="upgradeScreen">
+        <div class="modal-panel upgrade-panel">
+          <div class="eyebrow">BUILD EVOLUTION</div>
+          <h2>选择一次机制强化</h2>
+          <div class="upgrade-list" id="upgradeList"></div>
+        </div>
+      </section>
+
+      <section class="screen-overlay" id="gameoverScreen">
+        <div class="modal-panel result-panel">
+          <div class="eyebrow">RUN FAILED</div>
+          <h2>核心失守</h2>
+          <div class="result-score" id="resultScore">000000</div>
+          <p id="resultWave">突破至 WAVE 1</p>
+          <button class="primary-btn" id="restartBtn">重新开始</button>
+        </div>
+      </section>
+    </section>
+  </main>
+
+  <script type="module" src="./src/main.js"></script>
+</body>
+</html>
