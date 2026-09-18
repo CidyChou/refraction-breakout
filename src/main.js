@@ -5,8 +5,9 @@ import { Renderer } from './renderer.js';
 import { Game } from './game.js';
 import { AudioEngine } from './audio.js';
 import { GMPanel } from './gm.js';
+import { RuntimePerformance } from './core/runtime-performance.js';
 
-const canvas=document.querySelector('#game'),state=createState(),ui=new UI(),audio=new AudioEngine(),game=new Game(state,ui,audio),renderer=new Renderer(canvas,state),gm=new GMPanel(game,state,audio);
+const canvas=document.querySelector('#game'),state=createState(),ui=new UI(),audio=new AudioEngine(),game=new Game(state,ui,audio),renderer=new Renderer(canvas,state),gm=new GMPanel(game,state,audio),runtimePerf=new RuntimePerformance(state);
 ui.bind({
   onStart:()=>{audio.ensure();audio.uiConfirm();game.reset()},onRestart:()=>{audio.ensure();audio.uiConfirm();game.reset()},onUpgrade:i=>game.chooseUpgrade(i),onSoundToggle:()=>ui.setSoundEnabled(audio.toggle()),
   onOpenRecruit:()=>{audio.ensure();game.openRecruit({free:false,source:'shop'})},onChooseRecruit:i=>game.chooseRecruit(i),onCancelRecruit:()=>game.cancelRecruit(),onFighterAction:()=>game.openSelectedFighterAction(),onChooseEvolve:i=>game.chooseEvolution(i),onCancelEvolve:()=>game.cancelEvolve(),onRepairCore:()=>game.repairCore(),
@@ -40,4 +41,4 @@ addEventListener('keydown',e=>{
   audio.ensure();if(e.code==='F2'||e.code==='Backquote'){e.preventDefault();gm.toggle();return}if(e.code==='Escape'&&gm.open){gm.toggle(false);return}const tag=document.activeElement?.tagName;if(['INPUT','SELECT','TEXTAREA'].includes(tag))return;
   if(e.key.toLowerCase()==='r')game.reset();if(state.game.state==='upgrade'&&['1','2','3'].includes(e.key))game.chooseUpgrade(Number(e.key)-1);if(state.game.state==='recruit'&&['1','2','3'].includes(e.key))game.chooseRecruit(Number(e.key)-1);if(state.game.state==='evolve'&&['1','2'].includes(e.key))game.chooseEvolution(Number(e.key)-1);if(state.game.state==='title'&&(e.code==='Space'||e.code==='Enter'))game.reset();if(['gameover','victory'].includes(state.game.state)&&(e.code==='Space'||e.code==='Enter'))game.reset();
 });
-let last=performance.now();function loop(now){const dt=Math.min(.033,(now-last)/1000);last=now;game.update(dt*(state.game.gmTimeScale||1));renderer.draw();ui.sync(state);gm.sync();requestAnimationFrame(loop)}requestAnimationFrame(loop);
+let last=performance.now();function loop(now){const dt=Math.min(.033,(now-last)/1000);last=now;const frameStart=performance.now();game.update(dt*(state.game.gmTimeScale||1));renderer.draw();ui.sync(state);gm.sync();runtimePerf.sample(performance.now()-frameStart,dt);requestAnimationFrame(loop)}requestAnimationFrame(loop);

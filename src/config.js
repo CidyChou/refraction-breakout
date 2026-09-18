@@ -51,3 +51,17 @@ export const BALANCE = {
   maxSlowStacks:12,
   maxBurnStacks:20,
 };
+
+// Commercial H5 performance guardrails. Tune here instead of scattering caps across systems.
+export const PERFORMANCE = {
+  spatialCellSize:64,
+  maxEnemyRadius:34,
+  maxProjectiles:380,
+  maxParticles:420,
+  maxRings:150,
+  maxFloating:90,
+  maxDpr:1.5,
+  highLoadBulletLabels:90,
+  mediumLoadThreshold:300,
+  lowLoadThreshold:500,
+};

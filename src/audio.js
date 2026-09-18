@@ -6,6 +6,7 @@ export class AudioEngine{
     this.master=null;
     this.muted=localStorage.getItem('refraction-sfx-muted')==='1';
     this.last={};
+    this.noiseBuffer=null;
   }
   ensure(){
     if(!this.ctx){
@@ -15,6 +16,7 @@ export class AudioEngine{
       this.master=this.ctx.createGain();
       this.master.gain.value=this.muted?0:.34;
       this.master.connect(this.ctx.destination);
+      const len=Math.floor(this.ctx.sampleRate*.5);this.noiseBuffer=this.ctx.createBuffer(1,len,this.ctx.sampleRate);const data=this.noiseBuffer.getChannelData(0);for(let i=0;i<len;i++)data[i]=Math.random()*2-1;
     }
     if(this.ctx.state==='suspended')this.ctx.resume();
     return true;
@@ -43,11 +45,9 @@ export class AudioEngine{
   }
   noise({dur=.09,gain=.035,when=0,highpass=500,lowpass=9000}){
     if(!this.ensure()||this.muted)return;
-    const t=this.ctx.currentTime+when,len=Math.max(1,Math.floor(this.ctx.sampleRate*dur)),buf=this.ctx.createBuffer(1,len,this.ctx.sampleRate),data=buf.getChannelData(0);
-    for(let i=0;i<len;i++){const env=1-i/len;data[i]=(Math.random()*2-1)*env;}
-    const src=this.ctx.createBufferSource(),hp=this.ctx.createBiquadFilter(),lp=this.ctx.createBiquadFilter(),g=this.ctx.createGain();
-    src.buffer=buf;hp.type='highpass';hp.frequency.value=highpass;lp.type='lowpass';lp.frequency.value=lowpass;g.gain.value=gain;
-    src.connect(hp);hp.connect(lp);lp.connect(g);g.connect(this.master);src.start(t);
+    const t=this.ctx.currentTime+when,src=this.ctx.createBufferSource(),hp=this.ctx.createBiquadFilter(),lp=this.ctx.createBiquadFilter(),g=this.ctx.createGain();
+    src.buffer=this.noiseBuffer;hp.type='highpass';hp.frequency.value=highpass;lp.type='lowpass';lp.frequency.value=lowpass;g.gain.setValueAtTime(gain,t);g.gain.exponentialRampToValueAtTime(.0001,t+dur);
+    src.connect(hp);hp.connect(lp);lp.connect(g);g.connect(this.master);src.start(t,Math.random()*.35,dur);src.stop(t+dur+.01);
   }
   shoot(){
     if(!this.allow('shoot',.085))return;
