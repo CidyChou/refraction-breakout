@@ -1,11 +1,12 @@
-import { VIEW, BALANCE, COLORS, PERFORMANCE } from './config.js';
+import { VIEW, BALANCE, COLORS, PERFORMANCE, PROJECTILE_GEOMETRY } from './config.js';
 import { TAU, rand, clamp, lerp } from './utils.js';
 import { UPGRADES, fighterUpgradeChoices } from './upgrades.js';
-import { FIGHTER_TYPES, makeFighter, fighterStats, supportRange, supportFieldType, supportFieldStrength, fighterCanEvolve, sameMergeFamily, fighterUpgradeCost, mergeFighterProgress } from './fighters.js';
+import { FIGHTER_TYPES, makeFighter, makeFighterMods, fighterStats, supportRange, supportFieldType, supportFieldStrength, fighterCanEvolve, sameMergeFamily, fighterUpgradeCost, mergeFighterProgress } from './fighters.js';
 import { SpatialGrid } from './core/spatial-grid.js';
 import { ObjectPool } from './core/object-pool.js';
 import { EffectSystem } from './systems/effect-system.js';
 import { enemyType } from './data/enemies.js';
+import { capsuleCircleOverlap } from './core/collision.js';
 
 export class Game{
   constructor(state,ui,audio){
@@ -102,8 +103,8 @@ export class Game{
 
   shootFromFighter(f,angle,stats,shotIndex=0){
     const p=this.s.player,offset=(shotIndex-(stats.shots-1)/2)*stats.spread,a=angle+offset,muzzle=19,x=f.x+Math.cos(a)*muzzle,y=f.y+Math.sin(a)*muzzle;
-    const sp=p.bulletSpeed*(stats.bulletSpeedScale||1)*(1+(stats.ballSpeed||0)*.08),life=stats.life;
-    return this.spawnProjectile({x,y,vx:Math.cos(a)*sp,vy:Math.sin(a)*sp,r:stats.kind==='laser'?3.4:(5+(stats.bulletSize||0)*.35)*(stats.kind==='aoe'?1.15:.9),life,maxLife:life,dead:false,bounces:0,hitCount:Math.max(1,stats.hitCount),damage:BALANCE.baseDamage*stats.damage,splitDone:false,isSplit:false,slowBuff:0,burnBuff:0,prismBuff:0,kind:stats.kind,explosive:stats.explosive,sourceLevel:f.level,sourceStar:f.star,sourceType:f.type,sourceUid:f.uid,trailScale:stats.trailScale||1,evolution:f.evolution||null,sourceSplit:stats.split||0,sourceChain:stats.chain||0,sourceHoming:stats.homing||0,fieldMask:0,hitA:null,hitAUntil:0,hitB:null,hitBUntil:0});
+    const sp=p.bulletSpeed*(stats.bulletSpeedScale||1)*(1+(stats.ballSpeed||0)*.08);
+    return this.spawnProjectile({x,y,vx:Math.cos(a)*sp,vy:Math.sin(a)*sp,r:stats.kind==='laser'?3.4:(5+(stats.bulletSize||0)*.35)*(stats.kind==='aoe'?1.15:.9),dead:false,bounces:0,hitCount:Math.max(1,stats.hitCount),damage:BALANCE.baseDamage*stats.damage,splitDone:false,isSplit:false,slowBuff:0,burnBuff:0,prismBuff:0,kind:stats.kind,explosive:stats.explosive,sourceLevel:f.level,sourceStar:f.star,sourceType:f.type,sourceUid:f.uid,trailScale:stats.trailScale||1,evolution:f.evolution||null,sourceSplit:stats.split||0,sourceChain:stats.chain||0,sourceHoming:stats.homing||0,fieldMask:0,hitA:null,hitAUntil:0,hitB:null,hitBUntil:0});
   }
 
   fireFighters(dt){
@@ -139,7 +140,7 @@ export class Game{
 
   hitEnemy(e,damage,b=null,silent=false){
     if(e.dead)return false;if(e.protected>0&&e.type!=='warden'&&e.type!=='titan')damage*=.38;
-    if(e.type==='shield'&&b&&b.y>e.y){b.vx*=-.78;b.vy*=-.78;this.effects.ring({x:e.x,y:e.y-6,r:e.r,max:e.r+14,t:0,life:.14,color:'#ffcc67'});return false}
+    if(e.type==='shield'&&b&&b.vy<0){b.vx*=-.78;b.vy*=-.78;this.effects.ring({x:e.x,y:e.y-6,r:e.r,max:e.r+14,t:0,life:.14,color:'#ffcc67'});return false}
     if(e.type==='bumper'&&b){const dx=b.x-e.x,dy=b.y-e.y,len=Math.max(.001,Math.sqrt(dx*dx+dy*dy)),nx=dx/len,ny=dy/len,dot=b.vx*nx+b.vy*ny;b.vx=(b.vx-2*dot*nx)*.96;b.vy=(b.vy-2*dot*ny)*.96;this.effects.ring({x:e.x,y:e.y,r:e.r*.7,max:e.r+18,t:0,life:.16,color:'#ff75c8'});damage*=.72}
     this.applyBuffs(e,b);e.hp-=damage;if(damage>0&&!silent)this.audio?.hit(!!(b&&b.bounces>0));if(damage>0)this.effects.floating({x:e.x,y:e.y-4,text:`${damage.toFixed(1)}`,life:.42,color:(b&&((b.slowBuff||0)>0||(b.burnBuff||0)>0||(b.prismBuff||0)>0))?'#8cf7ff':'rgba(255,255,255,.68)'});if(e.hp<=0)this.killEnemy(e);return true;
   }
@@ -156,8 +157,8 @@ export class Game{
   applySupportFieldBullet(b){
     for(const field of this.supportFields){
       const dx=b.x-field.x,dy=b.y-field.y,inside=dx*dx+dy*dy<=field.range*field.range,bit=1<<field.index,was=(b.fieldMask&bit)!==0;
-      if(inside&&!was){if(field.type==='ice')b.slowBuff=Math.min(12,(b.slowBuff||0)+field.power);else if(field.type==='fire')b.burnBuff=Math.min(20,(b.burnBuff||0)+field.power);else if(field.type==='prism'){b.prismBuff=(b.prismBuff||0)+1;b.hitCount=Math.min(20,(b.hitCount||0)+field.power);b.life=Math.min((b.maxLife||b.life)+2,b.life+.9*field.power)}b.fieldMask|=bit;const color=field.type==='fire'?COLORS.burn:field.type==='prism'?COLORS.prism:COLORS.slow;this.effects.ring({x:b.x,y:b.y,r:4,max:18,t:0,life:.18,color})}
-      else if(!inside&&was)b.fieldMask&=~bit;
+      if(inside&&!was){if(field.type==='ice')b.slowBuff=Math.min(12,(b.slowBuff||0)+field.power);else if(field.type==='fire')b.burnBuff=Math.min(20,(b.burnBuff||0)+field.power);else if(field.type==='prism'){b.prismBuff=(b.prismBuff||0)+1;b.hitCount=Math.min(8,(b.hitCount||0)+Math.min(1,field.power))}b.fieldMask|=bit;const color=field.type==='fire'?COLORS.burn:field.type==='prism'?COLORS.prism:COLORS.slow;this.effects.ring({x:b.x,y:b.y,r:4,max:18,t:0,life:.18,color})}
+      else if(!inside&&was&&field.type!=='prism')b.fieldMask&=~bit;
     }
   }
 
@@ -165,7 +166,7 @@ export class Game{
 
   spawnSplitFragments(b){
     if(!((b.slowBuff||0)||(b.burnBuff||0)||(b.prismBuff||0)))return;const base=Math.atan2(b.vy,b.vx);
-    for(const off of[-.30,.30]){const sp=this.s.player.bulletSpeed*.76;this.spawnProjectile({x:b.x,y:b.y,vx:Math.cos(base+off)*sp,vy:Math.sin(base+off)*sp,r:3.2,life:2,maxLife:2,dead:false,bounces:b.bounces,hitCount:1,damage:0,splitDone:true,isSplit:true,slowBuff:b.slowBuff,burnBuff:b.burnBuff,prismBuff:b.prismBuff||0,kind:'normal',explosive:0,trailScale:1,sourceSplit:0,sourceChain:0,sourceHoming:0,fieldMask:0,hitA:null,hitAUntil:0,hitB:null,hitBUntil:0},{fragment:true})}
+    for(const off of[-.30,.30]){const sp=this.s.player.bulletSpeed*.76;this.spawnProjectile({x:b.x,y:b.y,vx:Math.cos(base+off)*sp,vy:Math.sin(base+off)*sp,r:3.2,dead:false,bounces:b.bounces,hitCount:1,damage:0,splitDone:true,isSplit:true,slowBuff:b.slowBuff,burnBuff:b.burnBuff,prismBuff:b.prismBuff||0,kind:'normal',explosive:0,trailScale:1,sourceSplit:0,sourceChain:0,sourceHoming:0,fieldMask:0,hitA:null,hitAUntil:0,hitB:null,hitBUntil:0},{fragment:true})}
   }
 
 
@@ -258,26 +259,30 @@ export class Game{
     this.prepareCombatIndex();
 
     for(const b of s.bullets){
-      if(b.dead)continue;b.life-=dt;if(b.life<=0){b.dead=true;continue}
+      if(b.dead)continue;
 
       // Localized force fields: query nearby cells instead of scanning the entire enemy list per projectile.
       this.enemyGrid.forEachInCircle(b.x,b.y,110,e=>{if(e.dead||e.type!=='magnet')return;const dx=e.x-b.x,dy=e.y-b.y,d2=dx*dx+dy*dy,range=e.gravity||105;if(d2>64&&d2<range*range){const dist=Math.sqrt(d2),pull=(1-dist/range)*230;b.vx+=dx/dist*pull*dt;b.vy+=dy/dist*pull*dt}});
 
       if((b.sourceHoming||0)>0){let target=null,bd2=(110+(b.sourceHoming||0)*20)**2;this.enemyGrid.forEachInCircle(b.x,b.y,Math.sqrt(bd2),e=>{if(e.dead)return;const dx=e.x-b.x,dy=e.y-b.y,d2=dx*dx+dy*dy;if(d2<bd2){bd2=d2;target=e}});if(target){const ta=Math.atan2(target.y-b.y,target.x-b.x),cur=Math.atan2(b.vy,b.vx),diff=((ta-cur+Math.PI*3)%TAU)-Math.PI,sp=Math.sqrt(b.vx*b.vx+b.vy*b.vy),na=cur+diff*dt*(.6+(b.sourceHoming||0)*.18);b.vx=Math.cos(na)*sp;b.vy=Math.sin(na)*sp}}
 
+      const moveStartX=b.x,moveStartY=b.y;
       b.x+=b.vx*dt;b.y+=b.vy*dt;let wall='';
       if(b.x<b.r&&b.vx<0){b.x=b.r;b.vx=Math.abs(b.vx);wall='left'}else if(b.x>VIEW.width-b.r&&b.vx>0){b.x=VIEW.width-b.r;b.vx=-Math.abs(b.vx);wall='right'}
       if(b.y<b.r&&b.vy<0){b.y=b.r;b.vy=Math.abs(b.vy);wall=wall||'top'}
       if(wall){b.bounces++;this.audio?.ricochet(wall,b.bounces);this.effects.ring({x:b.x,y:b.y,r:3,max:25,t:0,life:.18,color:wall==='top'?'#d9f7ff':'rgba(140,247,255,.8)'})}
-      if(b.y>BALANCE.projectileBottom){b.dead=true;continue}
-
       this.applySupportFieldBullet(b);
-      const searchRadius=b.r+PERFORMANCE.maxEnemyRadius;
-      this.enemyGrid.forEachInCircle(b.x,b.y,searchRadius,e=>{
-        if(e.dead||b.dead||e.spawnT>0)return;if((b.hitA===e.eid&&b.hitAUntil>g.time)||(b.hitB===e.eid&&b.hitBUntil>g.time))return;const dx=e.x-b.x,dy=e.y-b.y,rr=e.r+b.r;if(dx*dx+dy*dy>rr*rr)return;
+      const geometry=PROJECTILE_GEOMETRY[b.kind]||PROJECTILE_GEOMETRY.normal,speed=Math.max(.001,Math.sqrt(b.vx*b.vx+b.vy*b.vy));
+      const collisionRadius=b.r+geometry.collisionPadding,tailLength=geometry.trailLength*(b.trailScale||1)*geometry.collisionTailScale;
+      const tailX=b.x-b.vx/speed*tailLength,tailY=b.y-b.vy/speed*tailLength,pad=collisionRadius+PERFORMANCE.maxEnemyRadius;
+      const minX=Math.min(moveStartX,b.x,tailX)-pad,maxX=Math.max(moveStartX,b.x,tailX)+pad,minY=Math.min(moveStartY,b.y,tailY)-pad,maxY=Math.max(moveStartY,b.y,tailY)+pad;
+      this.enemyGrid.forEachInAabb(minX,minY,maxX,maxY,e=>{
+        if(e.dead||b.dead||e.spawnT>0)return;if((b.hitA===e.eid&&b.hitAUntil>g.time)||(b.hitB===e.eid&&b.hitBUntil>g.time))return;const rr=e.r+collisionRadius;
+        const crossedThisFrame=capsuleCircleOverlap(moveStartX,moveStartY,b.x,b.y,e.x,e.y,rr),touchesVisibleBody=tailLength>0&&capsuleCircleOverlap(tailX,tailY,b.x,b.y,e.x,e.y,rr);if(!crossedThisFrame&&!touchesVisibleBody)return;
         const dmg=this.impactDamage(b),did=this.hitEnemy(e,dmg,b);if(!did)return;
-        if((b.explosive||0)>0)this.explode(b.x,b.y,b.explosive,dmg,e);if((b.sourceChain||0)>0)this.chainFrom(e,Math.min(4,b.sourceChain||0),dmg);if((b.sourceSplit||0)>0&&!b.splitDone&&((b.slowBuff||0)||(b.burnBuff||0)||(b.prismBuff||0))){b.splitDone=true;this.spawnSplitFragments(b)}b.hitCount--;b.hitB=b.hitA;b.hitBUntil=b.hitAUntil;b.hitA=e.eid;b.hitAUntil=g.time+.10;if(b.hitCount<=0)b.dead=true;
+        if((b.explosive||0)>0)this.explode(e.x,e.y,b.explosive,dmg,e);if((b.sourceChain||0)>0)this.chainFrom(e,Math.min(4,b.sourceChain||0),dmg);if((b.sourceSplit||0)>0&&!b.splitDone&&((b.slowBuff||0)||(b.burnBuff||0)||(b.prismBuff||0))){b.splitDone=true;this.spawnSplitFragments(b)}b.hitCount--;b.hitB=b.hitA;b.hitBUntil=b.hitAUntil;b.hitA=e.eid;b.hitAUntil=g.time+Math.max(.10,tailLength/speed+.08);if(b.hitCount<=0)b.dead=true;
       });
+      if(b.y>BALANCE.projectileBottom)b.dead=true;
     }
 
     for(const e of s.enemies){
@@ -314,12 +319,12 @@ export class Game{
   gmSetFireCd(v){const f=this.getSelectedFighter();if(!f)return 0;f.gmCdOverride=clamp(Number(v)||.6,.05,3);return f.gmCdOverride}
   gmSetRicochets(v){const f=this.getSelectedFighter();if(!f)return 0;f.gmRicochetsOverride=clamp(Math.floor(Number(v)||1),1,20);return f.gmRicochetsOverride}
   gmSetTimeScale(v){this.s.game.gmTimeScale=clamp(Number(v)||1,.25,8);return this.s.game.gmTimeScale}
-  gmResetBuild(){const f=this.getSelectedFighter();if(!f)return;f.mods={hitCount:0,life:0,pierce:0,split:0,explosive:0,chain:0,homing:0,extraShots:0,fireRate:0,damage:0,bulletSize:0,ballSpeed:0,supportPower:0,supportRange:0};f.tuneLevels={};f.level=1;delete f.gmCdOverride;delete f.gmRicochetsOverride}
-  gmMaxWalls(){const f=this.getSelectedFighter();if(!f)return;if(f.type==='support'){f.mods.supportPower=5;f.mods.supportRange=5}else{f.mods.hitCount=5;f.mods.life=5}}
+  gmResetBuild(){const f=this.getSelectedFighter();if(!f)return;f.mods=makeFighterMods();f.tuneLevels={};f.level=1;delete f.gmCdOverride;delete f.gmRicochetsOverride}
+  gmMaxWalls(){const f=this.getSelectedFighter();if(!f)return;if(f.type==='support'){f.mods.supportPower=5;f.mods.supportRange=5}else{f.mods.hitCount=5}}
   gmStressTest(){
     const types=['grunt','spinner','drifter','shield','bumper','magnet','tank'];
     for(let i=0;i<48;i++){this.spawnEnemy(types[i%types.length],false);const e=this.s.enemies[this.s.enemies.length-1];e.spawnT=0;e.x=30+(i%8)*50;e.y=135+Math.floor(i/8)*55}
-    for(let i=0;i<180;i++){const a=rand(-Math.PI+.16,-.16),sp=rand(260,520);this.spawnProjectile({x:VIEW.width/2,y:580,vx:Math.cos(a)*sp,vy:Math.sin(a)*sp,r:3.2,life:8,maxLife:8,dead:false,bounces:0,hitCount:12,damage:.15,splitDone:true,isSplit:false,slowBuff:0,burnBuff:0,prismBuff:0,kind:'normal',explosive:0,sourceSplit:0,sourceChain:0,sourceHoming:0,fieldMask:0,hitA:null,hitAUntil:0,hitB:null,hitBUntil:0})}
+    for(let i=0;i<180;i++){const a=rand(-Math.PI+.16,-.16),sp=rand(260,520);this.spawnProjectile({x:VIEW.width/2,y:580,vx:Math.cos(a)*sp,vy:Math.sin(a)*sp,r:3.2,dead:false,bounces:0,hitCount:12,damage:.15,splitDone:true,isSplit:false,slowBuff:0,burnBuff:0,prismBuff:0,kind:'normal',explosive:0,sourceSplit:0,sourceChain:0,sourceHoming:0,fieldMask:0,hitA:null,hitAUntil:0,hitB:null,hitBUntil:0})}
     this.banner('PERF STRESS · 48 ENEMIES / 180 BULLETS',1.4);
   }
   gmSpawnEnemy(type){this.spawnEnemy(type,false)}

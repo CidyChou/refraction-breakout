@@ -40,12 +40,16 @@ export class SpatialGrid {
   }
 
   forEachInCircle(x, y, radius, fn) {
+    this.forEachInAabb(x - radius, y - radius, x + radius, y + radius, fn);
+  }
+
+  forEachInAabb(left, top, right, bottom, fn) {
     this.queryCount++;
     const cs = this.cellSize;
-    const minX = Math.max(0, Math.floor((x - radius) / cs));
-    const maxX = Math.min(this.cols - 1, Math.floor((x + radius) / cs));
-    const minY = Math.max(0, Math.floor((y - radius) / cs));
-    const maxY = Math.min(this.rows - 1, Math.floor((y + radius) / cs));
+    const minX = Math.max(0, Math.floor(left / cs));
+    const maxX = Math.min(this.cols - 1, Math.floor(right / cs));
+    const minY = Math.max(0, Math.floor(top / cs));
+    const maxY = Math.min(this.rows - 1, Math.floor(bottom / cs));
     for (let cy = minY; cy <= maxY; cy++) {
       const row = cy * this.cols;
       for (let cx = minX; cx <= maxX; cx++) {

@@ -1,4 +1,4 @@
-import { VIEW, COLORS, BALANCE, PERFORMANCE } from './config.js';
+import { VIEW, COLORS, BALANCE, PERFORMANCE, PROJECTILE_GEOMETRY } from './config.js';
 import { FIGHTER_TYPES, fighterEvolutionMeta, fighterStats, supportRange, supportFieldType, supportFieldColor, supportFieldStrength } from './fighters.js';
 import { TAU, rand } from './utils.js';
 import { enemyType } from './data/enemies.js';
@@ -96,7 +96,7 @@ export class Renderer{
     const {ctx,state:s}=this,quality=s.perf?.quality||'high',sp=Math.max(1,Math.sqrt(b.vx*b.vx+b.vy*b.vy)),nx=b.vx/sp,ny=b.vy/sp;
     const base=b.kind==='laser'?'#d6a7ff':b.kind==='aoe'?'#ffad73':b.kind==='pierce'?'#8fffc0':'#8cf7ff';
     const c=(b.prismBuff||0)>0?COLORS.prism:(b.slowBuff&&b.burnBuff)?'#d7a7ff':b.slowBuff?COLORS.slow:b.burnBuff?COLORS.burn:base;
-    const len=(b.kind==='laser'?52:b.kind==='pierce'?24:18)*(b.trailScale||1);
+    const geometry=PROJECTILE_GEOMETRY[b.kind]||PROJECTILE_GEOMETRY.normal,len=geometry.trailLength*(b.trailScale||1);
     ctx.save();ctx.lineCap='round';ctx.strokeStyle=c;ctx.globalAlpha=quality==='low'?.72:.92;ctx.lineWidth=b.kind==='laser'?(quality==='low'?4.2:6):b.r*(quality==='low'?.85:1.15);ctx.beginPath();ctx.moveTo(b.x-nx*len,b.y-ny*len);ctx.lineTo(b.x,b.y);ctx.stroke();
     if(quality==='high'){ctx.shadowBlur=b.kind==='laser'?16:10;ctx.shadowColor=c}ctx.fillStyle='#fff';ctx.beginPath();ctx.arc(b.x,b.y,b.kind==='laser'?2.5:b.r*.62,0,TAU);ctx.fill();
     if(b.kind==='aoe'&&quality!=='low'){ctx.shadowBlur=0;ctx.globalAlpha=.4;ctx.strokeStyle=c;ctx.beginPath();ctx.arc(b.x,b.y,b.r+4,0,TAU);ctx.stroke()}

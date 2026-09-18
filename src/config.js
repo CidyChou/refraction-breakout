@@ -52,6 +52,15 @@ export const BALANCE = {
   maxBurnStacks:20,
 };
 
+// Shared rendered-body and hitbox geometry. Orb-like shots keep a cosmetic
+// streak; laser / pierce shots use part or all of their visible body to hit.
+export const PROJECTILE_GEOMETRY = {
+  normal:{trailLength:18,collisionTailScale:0,collisionPadding:0},
+  laser:{trailLength:52,collisionTailScale:1,collisionPadding:2},
+  pierce:{trailLength:24,collisionTailScale:.55,collisionPadding:1},
+  aoe:{trailLength:18,collisionTailScale:0,collisionPadding:0},
+};
+
 // Commercial H5 performance guardrails. Tune here instead of scattering caps across systems.
 export const PERFORMANCE = {
   spatialCellSize:64,

@@ -1,7 +1,6 @@
 // 金币升级只作用于当前选中的战机实例，不再修改全局。
 export const UPGRADES = [
   {id:'hitcount',name:'命中延展',desc:'这架战机的主弹可命中次数 +1。',icon:'H+',available:f=>f?.type!=='support',apply:f=>f.mods.hitCount++},
-  {id:'lifetime',name:'轨迹续航',desc:'这架战机的主弹存在时间 +0.8 秒。',icon:'∞',available:f=>f?.type!=='support',apply:f=>f.mods.life++},
   {id:'split',name:'Buff 碎片',desc:'命中后释放 2 个 Buff 碎片，继承现有 Buff，但没有基础伤害。',icon:'Y',available:f=>f?.type!=='support',apply:f=>f.mods.split++},
   {id:'boom',name:'震荡爆破',desc:'这架战机的主弹获得更强范围冲击。',icon:'◎',available:f=>f?.type!=='support',apply:f=>f.mods.explosive++},
   {id:'chain',name:'电弧连锁',desc:'命中后低伤害跳跃到附近敌人。',icon:'ϟ',available:f=>f?.type!=='support',apply:f=>f.mods.chain++},

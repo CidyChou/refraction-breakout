@@ -35,7 +35,7 @@ export class UI{
 
     this.setText(this.slow,'slow','LEFT / RIGHT / TOP');this.setText(this.burn,'burn','PURE REFLECT');this.leftBadge?.classList.remove('buff-active');this.rightBadge?.classList.remove('buff-active');
     this.setText(this.cd,'cd',f?`${FIGHTER_TYPES[f.type].short} · ${'★'.repeat(f.star||1)} · LV.${f.level}`:`FIGHTERS ${s.fighters.battle.length}`);
-    this.setText(this.bounce,'bounce',stats&&f?.type!=='support'?`HIT ${stats.hitCount} · LIFE ${stats.life.toFixed(1)}s`:f?.type==='support'?`FIELD ${(supportFieldType(f)||'ice').toUpperCase()}`:'PINBALL LOOP');
+    this.setText(this.bounce,'bounce',stats&&f?.type!=='support'?`HIT ${stats.hitCount}`:f?.type==='support'?`FIELD ${(supportFieldType(f)||'ice').toUpperCase()}`:'PINBALL LOOP');
     this.setText(this.damage,'damage',f?.type!=='support'&&stats?`DMG ${stats.damage.toFixed(2)} · SHOT ${stats.shots}`:'WALLS REFLECT FOREVER · BOTTOM DROPS');
 
     if(this.last.state!==g.state){this.last.state=g.state;this.title?.classList.toggle('visible',g.state==='title');this.upgrade?.classList.toggle('visible',g.state==='upgrade');this.recruit?.classList.toggle('visible',g.state==='recruit');this.evolve?.classList.toggle('visible',g.state==='evolve');this.gameover?.classList.toggle('visible',g.state==='gameover');this.victory?.classList.toggle('visible',g.state==='victory')}
@@ -52,7 +52,7 @@ export class UI{
     this.setText(this.fighterCount,'fighterCount',`${s.fighters.battle.length}/${BALANCE.maxFighters}`);this.setText(this.waveStatus,'waveStatus',g.state==='intermission'?`NEXT ${Math.max(0,g.intermissionTimer).toFixed(1)}s`:`WAVE ${g.wave}/${g.maxWave}`);
     const f=this.selected(s);if(!f){this.selectedName.textContent='点击战机选择';this.selectedStars.textContent='';this.selectedTrait.textContent='星级靠合成 · 等级靠金币';this.fighterActionBtn.hidden=true;return}
     const m=FIGHTER_TYPES[f.type],e=fighterEvolutionMeta(f),stats=fighterStats(f,0);this.selectedName.textContent=e?e.tag:m.short;this.selectedStars.textContent=`${'★'.repeat(f.star||1)} · LV.${f.level}`;
-    this.selectedTrait.textContent=f.type==='support'?`场域 ${supportFieldType(f).toUpperCase()} · 子弹穿过才会获得 Buff`:`角度 ${Math.round(f.aimAngle*180/Math.PI)}° · HIT ${stats.hitCount} · LIFE ${stats.life.toFixed(1)}s`;
+    this.selectedTrait.textContent=f.type==='support'?`场域 ${supportFieldType(f).toUpperCase()} · 子弹穿过才会获得 Buff`:`角度 ${Math.round(f.aimAngle*180/Math.PI)}° · HIT ${stats.hitCount}`;
     this.fighterActionBtn.hidden=false;this.fighterActionBtn.classList.remove('upgrade-mode','max-mode');
     if((f.level||1)<4){const cost=fighterUpgradeCost(f);this.fighterActionBtn.classList.add('upgrade-mode');this.fighterActionBtn.disabled=g.coins<cost||!['playing','intermission'].includes(g.state);this.fighterActionBtn.innerHTML=`UPGRADE <b>${cost}¢</b>`}
     else if(fighterCanEvolve(f)){this.fighterActionBtn.disabled=g.coins<BALANCE.evolveCost||!['playing','intermission'].includes(g.state);this.fighterActionBtn.innerHTML=`EVOLVE <b>${BALANCE.evolveCost}¢</b>`}
