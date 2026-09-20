@@ -22,6 +22,7 @@ export class GMPanel{
     this.el.querySelector('[data-gm="add-coins"]').onclick=()=>this.act(()=>this.game.gmAddCoins(100));
     this.el.querySelector('[data-gm="clear-bullets"]').onclick=()=>this.act(()=>this.game.gmClearBullets());
     this.el.querySelector('[data-gm="stress"]')?.addEventListener('click',()=>this.act(()=>this.game.gmStressTest()));
+    this.el.querySelector('[data-gm="unlock-levels"]')?.addEventListener('click',()=>this.act(()=>this.game.gmUnlockLevels()));
     this.pauseBtn.onclick=()=>this.act(()=>this.game.gmTogglePause());this.invincibleBtn.onclick=()=>this.act(()=>this.game.gmToggleInvincible());
     document.querySelector('#gmJumpWave').onclick=()=>this.act(()=>this.game.gmJumpWave(this.waveInput.value));document.querySelector('#gmAddXp').onclick=()=>this.act(()=>this.game.gmAddXp(this.xpInput.value));
     document.querySelector('#gmSetCd').onclick=()=>this.act(()=>this.game.gmSetFireCd(this.cdInput.value));document.querySelector('#gmSetBounce').onclick=()=>this.act(()=>this.game.gmSetRicochets(this.bounceInput.value));
@@ -36,7 +37,7 @@ export class GMPanel{
     const alive=enemies.filter(e=>!e.dead).length;const sig=[g.wave,alive,bullets.length,particles.length,perf?.fps,perf?.quality,g.xp,g.nextXp,g.core,g.coins,g.gmPaused,g.gmInvincible,g.gmTimeScale,f?.uid,f?.level,f?.star,stats?.cd,stats?.hitCount,...UPGRADES.map(u=>levels[u.id]||0)].join('|');
     if(!force&&sig===this.last)return;this.last=sig;this.status.textContent=`W${g.wave||0} · E${alive} · B${bullets.length} · ${perf?.fps||60}FPS ${String(perf?.quality||'high').toUpperCase()} · XP ${g.xp}/${g.nextXp}${f?` · ${'★'.repeat(f.star||1)} L${f.level}`:''}`;
     this.pauseBtn.textContent=g.gmPaused?'恢复游戏':'暂停游戏';this.pauseBtn.classList.toggle('on',g.gmPaused);this.invincibleBtn.textContent=g.gmInvincible?'无敌 ON':'核心无敌';this.invincibleBtn.classList.toggle('on',g.gmInvincible);
-    if(document.activeElement!==this.cdInput)this.cdInput.value=(stats?.cd??.6).toFixed(2);if(document.activeElement!==this.bounceInput)this.bounceInput.value=stats?.hitCount||1;this.timeScale.value=String(g.gmTimeScale||1);
+    if(document.activeElement!==this.cdInput)this.cdInput.value=(stats?.cd??.6).toFixed(2);if(document.activeElement!==this.bounceInput)this.bounceInput.value=stats?.hitCount||1;this.timeScale.value=String(g.gmTimeScale||1);if(this.waveInput)this.waveInput.max=String(g.maxWave||40);
     UPGRADES.forEach(u=>{const el=this.skillList.querySelector(`[data-level="${u.id}"]`);if(el)el.textContent=`LV.${levels[u.id]||0}`;const btn=this.skillList.querySelector(`[data-skill="${u.id}"]`);if(btn)btn.disabled=!f||!!(u.available&&!u.available(f))});
   }
 }

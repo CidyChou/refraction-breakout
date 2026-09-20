@@ -17,11 +17,11 @@ export const BALANCE = {
   // Slow-horde pacing: many enemies, slower movement, higher tankiness.
   enemyBaseHp:3.3,
   enemyHpPerWave:.64,
-  enemyBaseSpeed:20.5,
-  enemySpeedPerWave:.42,
-  enemySpeedWaveCap:14,
-  enemyPressurePerWave:.006,
-  enemyPressureCap:1.20,
+  enemyBaseSpeed:16,
+  enemySpeedPerWave:.30,
+  enemySpeedWaveCap:10,
+  enemyPressurePerWave:.004,
+  enemyPressureCap:1.12,
 
   waveBaseQuota:10,
   waveQuotaPerWave:1.6,

@@ -193,7 +193,30 @@ canvas{display:block;width:100%;height:100%;touch-action:none;cursor:crosshair}
 .next-wave-btn:disabled{opacity:.38;filter:saturate(.2);cursor:not-allowed}
 
 /* ===== v12 Commercial loop ===== */
-.title-content{display:flex;flex-direction:column;align-items:center;max-width:340px}
+.title-content{display:flex;flex-direction:column;align-items:center;max-width:360px;width:100%}
+#titleScreen{padding:22px 16px 18px;overflow:auto}
+#titleScreen h1{font-size:30px;margin:8px 0 0}
+#titleScreen .subtitle{margin:10px 0 0;font-size:12px}
+.level-select{width:100%;margin-top:16px;display:grid;gap:10px}
+.level-act-label{display:flex;justify-content:space-between;align-items:baseline;margin:0 2px 6px;font-weight:900}
+.level-act-label span{font-size:8px;letter-spacing:.16em;color:rgba(220,236,255,.48)}
+.level-act-label em{font-style:normal;font-size:8px;letter-spacing:.08em;color:rgba(220,236,255,.28)}
+.level-row{display:grid;grid-template-columns:repeat(5,1fr);gap:6px}
+.level-cell{min-height:54px;padding:6px 4px 5px;border-radius:11px;border:1px solid rgba(255,255,255,.08);background:rgba(255,255,255,.03);color:#eef6ff;cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px}
+.level-cell b{font-size:13px;letter-spacing:.08em}
+.level-cell span{max-width:100%;font-size:8px;line-height:1.15;color:rgba(230,240,255,.46);font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.level-cell.selected{border-color:rgba(101,231,255,.55);background:rgba(91,226,255,.10);box-shadow:0 0 18px rgba(91,226,255,.12)}
+.level-cell.cleared{border-color:rgba(101,231,255,.22)}
+.level-cell.cleared b{color:#8cf7ff}
+.level-cell.lock,.level-cell:disabled{opacity:.34;cursor:not-allowed;filter:saturate(.2)}
+.act-1 .level-cell.selected{border-color:rgba(101,231,255,.55)}
+.act-2 .level-cell.selected{border-color:rgba(255,173,115,.55);background:rgba(255,173,115,.10)}
+.act-3 .level-cell.selected{border-color:rgba(199,155,255,.55);background:rgba(199,155,255,.10)}
+.level-detail{margin:12px 0 0;min-height:32px;font-size:10px;line-height:1.45;color:rgba(230,240,255,.52)}
+#titleScreen .primary-btn{margin-top:12px;min-width:180px;padding:12px 20px}
+.result-actions{display:grid;gap:8px;margin-top:4px}
+.result-actions .primary-btn{min-width:0;width:100%}
+.result-actions .ghost-btn{margin-top:0}
 .wave-pill strong{min-width:44px;text-align:center}
 .coin-line{margin-top:3px;font-size:7px;letter-spacing:.12em;color:rgba(255,231,135,.45);font-weight:800}.coin-line b{color:#ffe787;font-size:9px}
 
@@ -224,6 +247,7 @@ canvas{display:block;width:100%;height:100%;touch-action:none;cursor:crosshair}
 .victory-screen{background:radial-gradient(circle at 50% 38%,rgba(113,236,255,.15),transparent 34%),rgba(2,5,10,.90);backdrop-filter:blur(8px)}.victory-panel{border-color:rgba(115,236,255,.20);box-shadow:0 0 70px rgba(95,226,255,.08),0 30px 90px rgba(0,0,0,.55)}.victory-mark{width:88px;height:88px;margin:20px auto 3px;border-radius:50%;display:grid;place-items:center;border:1px solid rgba(101,231,255,.28);background:radial-gradient(circle,rgba(101,231,255,.12),transparent 70%);color:#baf7ff;font-size:32px;font-weight:950;box-shadow:0 0 35px rgba(101,231,255,.10)}
 
 @media(max-height:720px){
+  #titleScreen h1{font-size:24px}.level-cell{min-height:46px;padding:4px 3px}.level-detail{min-height:24px;font-size:9px}#titleScreen .primary-btn{padding:10px 16px;margin-top:8px}
   .commercial-prep{padding:11px 12px 9px}.commercial-prep .fighter-slot{height:61px}.commercial-prep .bench-grid .fighter-slot{height:50px}.fighter-inspector{min-height:105px;padding:8px;margin-top:7px}.inspector-main p{display:none}.inspector-icon{width:39px;height:39px}.inspector-stats span{padding:4px}.upgrade-fighter-btn{height:29px}.commercial-actions{margin-top:7px}.commercial-actions .next-wave-btn{height:36px!important}.commercial-actions .shop-btn,.commercial-actions .repair-btn{height:37px!important}.prep-tip{display:none}
   .choice-card{min-height:82px;padding:9px}.choice-icon{width:40px;height:40px}.choice-panel{padding:15px 13px 11px}
 }

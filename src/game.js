@@ -6,6 +6,7 @@ import { SpatialGrid } from './core/spatial-grid.js';
 import { ObjectPool } from './core/object-pool.js';
 import { EffectSystem } from './systems/effect-system.js';
 import { enemyType } from './data/enemies.js';
+import { getLevel, nextLevel, pickEnemy, titanOnWave, markLevelCleared, saveProgress, loadProgress, isLevelUnlocked, unlockAllLevels } from './data/levels.js';
 import { capsuleCircleOverlap } from './core/collision.js';
 
 export class Game{
@@ -19,14 +20,37 @@ export class Game{
     for(let i=0;i<64;i++)state.stars.push({x:rand(0,VIEW.width),y:rand(0,VIEW.height),s:rand(.4,1.8),a:rand(.15,.8),v:rand(4,18)});
   }
 
-  reset(){
-    const s=this.s,g=s.game,p=s.player;
-    Object.assign(g,{state:'playing',resumeState:'playing',time:0,score:0,kills:0,wave:0,maxWave:BALANCE.totalWaves,xp:0,nextXp:9,core:BALANCE.maxCore,coins:BALANCE.startingCoins,shopCost:BALANCE.shopBaseCost,shopBuys:0,repairCost:BALANCE.repairBaseCost,repairBuys:0,shake:0,flash:0,breakthrough:0,spawnTimer:0,enemyQuota:0,enemySpawned:0,waveActive:false,waveElapsed:0,waveDuration:18,bossSpawned:false,upgradeChoices:[],upgradeTarget:null,upgradeCost:0,recruitChoices:[],recruitFree:false,recruitSource:'shop',evolveChoices:[],evolveTarget:null,pendingFighter:null,placementX:VIEW.width/2,placementY:560,intermissionTimer:0,banner:'',bannerT:0,combo:0,comboT:0,gmPaused:false,gmInvincible:false,gmTimeScale:1,rewardText:''});
+  currentLevel(){return getLevel(this.s.game.levelId)}
+  reset(levelId){
+    const s=this.s,g=s.game,p=s.player,progress=loadProgress();
+    const id=levelId||g.selectedLevelId||progress.last||1;
+    if(!isLevelUnlocked(id, progress.cleared)){this.banner('先通关上一关',1);return false}
+    const level=getLevel(id);
+    saveProgress({last:id});
+    Object.assign(g,{state:'playing',resumeState:'playing',time:0,score:0,kills:0,wave:0,maxWave:level.waves,levelId:level.id,selectedLevelId:level.id,xp:0,nextXp:9,core:BALANCE.maxCore,coins:level.coins??BALANCE.startingCoins,shopCost:BALANCE.shopBaseCost,shopBuys:0,repairCost:BALANCE.repairBaseCost,repairBuys:0,shake:0,flash:0,breakthrough:0,spawnTimer:0,enemyQuota:0,enemySpawned:0,waveActive:false,waveElapsed:0,waveDuration:18,bossSpawned:false,upgradeChoices:[],upgradeTarget:null,upgradeCost:0,recruitChoices:[],recruitFree:false,recruitSource:'shop',evolveChoices:[],evolveTarget:null,pendingFighter:null,placementX:VIEW.width/2,placementY:560,intermissionTimer:0,banner:'',bannerT:0,combo:0,comboT:0,gmPaused:false,gmInvincible:false,gmTimeScale:1,rewardText:''});
     Object.assign(p,{bulletSpeed:470,coinGain:1,expGain:1});
     this.clearProjectiles();this.effects.clear();s.enemies.length=0;
     s.fighters.battle=[];s.fighters.selectedUid=null;
+    this.banner(`${level.tag} · ${level.waves} WAVES`,1.2);
     this.openRecruit({free:true,source:'starter'});
     this.ui?.refreshCombat?.(s,this);
+    return true;
+  }
+  backToTitle(){
+    const s=this.s,g=s.game;
+    this.clearProjectiles();this.effects.clear();s.enemies.length=0;s.fighters.battle=[];s.fighters.selectedUid=null;
+    g.state='title';g.waveActive=false;g.bannerT=0;g.pendingFighter=null;
+    this.ui?.renderLevelSelect?.(g);
+  }
+  selectLevel(id){
+    const progress=loadProgress();
+    if(!isLevelUnlocked(id, progress.cleared)){this.banner('先通关上一关',.9);return false}
+    this.s.game.selectedLevelId=id;this.ui?.renderLevelSelect?.(this.s.game);return true;
+  }
+  startNextLevel(){
+    const n=nextLevel(this.s.game.levelId);
+    if(!n){this.backToTitle();return false}
+    return this.reset(n.id);
   }
 
   banner(text,time=1.1){this.s.game.banner=text;this.s.game.bannerT=time}
@@ -60,36 +84,24 @@ export class Game{
   }
 
   startWave({silent=false,preserveState=false}={}){
-    const g=this.s.game;
+    const g=this.s.game,level=this.currentLevel();
     if(!this.hasAttackFighter()){this.banner('至少需要 1 架攻击战机',1.1);return false}
-    if(g.wave>=BALANCE.totalWaves){this.completeRun();return false}
+    if(g.wave>=(g.maxWave||level.waves)){this.completeRun();return false}
     g.wave++;if(!preserveState){g.state='playing';g.resumeState='playing'}g.waveActive=true;g.enemySpawned=0;g.waveElapsed=0;g.bossSpawned=false;
-    g.enemyQuota=Math.min(Math.round(BALANCE.waveBaseQuota+g.wave*BALANCE.waveQuotaPerWave),BALANCE.waveQuotaCap);
-    g.waveDuration=Math.min(BALANCE.waveDurationBase+g.wave*BALANCE.waveDurationPerWave,BALANCE.waveDurationCap);
-    g.spawnTimer=.42;if(!silent)this.banner(g.wave%10===0?`MILESTONE · WAVE ${g.wave}`:`WAVE ${g.wave}`,1.15);return true;
+    g.maxWave=level.waves;
+    g.enemyQuota=Math.max(4, Math.min(Math.round((BALANCE.waveBaseQuota+g.wave*BALANCE.waveQuotaPerWave)*(level.quota||1)),BALANCE.waveQuotaCap));
+    g.waveDuration=Math.min(BALANCE.waveDurationBase+g.wave*BALANCE.waveDurationPerWave,BALANCE.waveDurationCap)*(level.duration||1);
+    const titan=titanOnWave(level,g.wave);
+    g.spawnTimer=.42;if(!silent)this.banner(titan?`MILESTONE · WAVE ${g.wave}`:`WAVE ${g.wave}/${g.maxWave}`,1.15);return true;
   }
 
   formationX(i,count,type){const m=48;if(type===0)return lerp(m,VIEW.width-m,(i+.5)/Math.max(1,count))+Math.sin(i*1.7)*12;if(type===1)return VIEW.width/2+Math.sin(i/(Math.max(1,count-1))*Math.PI*2)*130;return lerp(m,VIEW.width-m,(i+.5)/Math.max(1,count))}
-  chooseEnemyType(w){
-    const r=Math.random();
-    if(w>=12&&r<.07)return'tank';
-    if(w>=9&&r<.13)return'regen';
-    if(w>=5&&r<.19)return'magnet';
-    if(w>=6&&r<.25)return'carrier';
-    if(w>=5&&r<.34)return'drifter';
-    if(w>=4&&r<.43)return'warden';
-    if(w>=4&&r<.52)return'pulse';
-    if(w>=3&&r<.62)return'bumper';
-    if(w>=3&&r<.71)return'splitter';
-    if(w>=2&&r<.82)return'spinner';
-    if(w>=2&&r<.91)return'shield';
-    return'grunt';
-  }
+  chooseEnemyType(w){return pickEnemy(this.currentLevel(), w)}
   spawnEnemy(forcedType=null,countTowardWave=true){
-    const s=this.s,g=s.game,n=g.enemySpawned,q=g.enemyQuota,d=Math.max(1,g.wave),type=forcedType||this.chooseEnemyType(d),spec=enemyType(type);
+    const s=this.s,g=s.game,n=g.enemySpawned,q=g.enemyQuota,d=Math.max(1,g.wave),level=this.currentLevel(),type=forcedType||this.chooseEnemyType(d),spec=enemyType(type);
     let x=type==='titan'?VIEW.width/2:this.formationX(n,q,(d+n)%3);
-    let hp=(BALANCE.enemyBaseHp+(d-1)*BALANCE.enemyHpPerWave)*spec.hp;
-    let speed=(BALANCE.enemyBaseSpeed+Math.min(BALANCE.enemySpeedWaveCap,d*BALANCE.enemySpeedPerWave))*spec.speed;
+    let hp=(BALANCE.enemyBaseHp+(d-1)*BALANCE.enemyHpPerWave)*spec.hp*(level.hp||1);
+    let speed=(BALANCE.enemyBaseSpeed+Math.min(BALANCE.enemySpeedWaveCap,d*BALANCE.enemySpeedPerWave))*spec.speed*(level.speed||1);
     const radius=spec.radius,coinValue=spec.coin,regenRate=spec.regen?(.12+.012*d):0;
     hp=Math.round(hp*2)/2;
     const portal=BALANCE.portal||{spawnY:112,minX:76,maxX:344};x=type==='titan'?VIEW.width/2:clamp(x,portal.minX,portal.maxX);
@@ -239,12 +251,17 @@ export class Game{
   repairCore(){const g=this.s.game;if(!['playing','intermission'].includes(g.state)||g.core>=BALANCE.maxCore||g.coins<g.repairCost)return false;g.coins-=g.repairCost;g.core++;g.repairBuys++;g.repairCost=BALANCE.repairBaseCost+g.repairBuys*BALANCE.repairCostStep;this.audio?.uiConfirm();this.banner('CORE REPAIRED',.9);return true}
   enterIntermission(){
     const g=this.s.game;g.waveActive=false;g.breakthrough=1.2;
-    if(g.wave>=BALANCE.totalWaves){this.completeRun();return}
-    const cleared=g.wave,bonus=2+Math.floor(cleared/5);g.score+=350+cleared*65;g.coins+=bonus;g.rewardText=`WAVE ${cleared}/${BALANCE.totalWaves} CLEAR · +${bonus}¢`;this.audio?.breakthrough();
+    if(g.wave>=g.maxWave){this.completeRun();return}
+    const cleared=g.wave,bonus=2+Math.floor(cleared/5);g.score+=350+cleared*65;g.coins+=bonus;g.rewardText=`WAVE ${cleared}/${g.maxWave} CLEAR · +${bonus}¢`;this.audio?.breakthrough();
     const preserveState=['recruit','placing'].includes(g.state)&&g.resumeState==='playing';
-    this.startWave({silent:true,preserveState});this.banner(`WAVE ${cleared} CLEAR  ·  WAVE ${g.wave}`,1.0);
+    this.startWave({silent:true,preserveState});this.banner(`WAVE ${cleared} CLEAR  ·  WAVE ${g.wave}/${g.maxWave}`,1.0);
   }
-  completeRun(){const g=this.s.game;g.state='victory';g.waveActive=false;g.score+=5000;this.audio?.breakthrough();this.banner('CHAPTER CLEAR',2);this.ui?.showVictory?.(this.s)}
+  completeRun(){
+    const g=this.s.game,level=this.currentLevel();
+    markLevelCleared(level.id);
+    g.state='victory';g.waveActive=false;g.score+=5000;this.audio?.breakthrough();
+    this.banner(`${level.tag} CLEAR`,2);this.ui?.showVictory?.(this.s, level, nextLevel(level.id));
+  }
 
   update(dt){
     const s=this.s,g=s.game;if(g.gmPaused)return;g.time+=dt;g.flash=Math.max(0,g.flash-dt*2);g.shake=Math.max(0,g.shake-dt*15);g.bannerT=Math.max(0,g.bannerT-dt);if(g.comboT>0){g.comboT-=dt;if(g.comboT<=0)g.combo=0}
@@ -254,7 +271,7 @@ export class Game{
 
     this.fireFighters(dt);g.waveElapsed+=dt;g.spawnTimer-=dt;
     if(g.waveActive&&g.enemySpawned<g.enemyQuota&&g.spawnTimer<=0){this.spawnEnemy();const remain=Math.max(1,g.enemyQuota-g.enemySpawned),timeRemain=Math.max(.5,g.waveDuration-g.waveElapsed);g.spawnTimer=Math.max(BALANCE.minSpawnInterval,timeRemain/remain*rand(.74,1.30))}
-    if(g.wave%10===0&&!g.bossSpawned&&g.waveElapsed>=g.waveDuration*.62){g.bossSpawned=true;this.spawnEnemy('titan',false);this.banner(`TITAN · WAVE ${g.wave}`,1)}
+    if(titanOnWave(this.currentLevel(),g.wave)&&!g.bossSpawned&&g.waveElapsed>=g.waveDuration*.62){g.bossSpawned=true;this.spawnEnemy('titan',false);this.banner(`TITAN · WAVE ${g.wave}`,1)}
 
     this.prepareCombatIndex();
 
@@ -295,7 +312,7 @@ export class Game{
     }
 
     s.perf.gridQueries=this.enemyGrid.queryCount;s.perf.gridCandidates=this.enemyGrid.candidateCount;
-    if((g.state==='playing'||liveOverlay)&&g.waveActive&&g.enemySpawned>=g.enemyQuota&&(g.wave%10!==0||g.bossSpawned)&&!s.enemies.some(e=>!e.dead))this.enterIntermission();
+    if((g.state==='playing'||liveOverlay)&&g.waveActive&&g.enemySpawned>=g.enemyQuota&&(!titanOnWave(this.currentLevel(),g.wave)||g.bossSpawned)&&!s.enemies.some(e=>!e.dead))this.enterIntermission();
     this.updateFx(dt);
   }
 
@@ -308,7 +325,8 @@ export class Game{
   // GM helpers
   gmUpgrade(id){const f=this.getSelectedFighter(),u=UPGRADES.find(v=>v.id===id);if(!f||!u||(u.available&&!u.available(f)))return false;this.applyFighterUpgrade(f,u,{announce:false,levelUp:false});this.banner(`GM · ${FIGHTER_TYPES[f.type].short} · ${u.name} +1`,.75);return f.tuneLevels?.[id]||1}
   gmKillWave(){const g=this.s.game;for(const e of this.s.enemies)e.dead=true;this.s.enemies.length=0;g.enemySpawned=g.enemyQuota;g.bossSpawned=true;this.enterIntermission()}
-  gmJumpWave(target){const g=this.s.game,n=clamp(Math.floor(Number(target)||1),1,BALANCE.totalWaves);this.s.enemies.length=0;this.clearProjectiles();g.state='playing';g.waveActive=false;g.wave=n-1;this.startWave();this.banner(`GM · WAVE ${n}`,.8);return n}
+  gmJumpWave(target){const g=this.s.game,n=clamp(Math.floor(Number(target)||1),1,g.maxWave||this.currentLevel().waves);this.s.enemies.length=0;this.clearProjectiles();g.state='playing';g.waveActive=false;g.wave=n-1;this.startWave();this.banner(`GM · WAVE ${n}`,.8);return n}
+  gmUnlockLevels(){unlockAllLevels();this.ui?.renderLevelSelect?.(this.s.game);this.banner('GM · ALL STAGES UNLOCKED',.9);return true}
   gmTriggerUpgrade(){if(['title','gameover','victory'].includes(this.s.game.state))this.s.game.state='playing';return this.openRecruit({free:true,source:'gm'})}
   gmAddXp(amount=10){const g=this.s.game;g.xp+=Math.max(0,Number(amount)||0);if(g.state==='playing'&&g.xp>=g.nextXp){g.xp-=g.nextXp;g.nextXp=Math.floor(g.nextXp*1.40+3);this.openRecruit({free:true,source:'xp'})}return g.xp}
   gmAddCoins(amount=100){this.s.game.coins+=Math.max(0,Number(amount)||0);return this.s.game.coins}

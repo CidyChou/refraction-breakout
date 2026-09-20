@@ -39,10 +39,10 @@ export function mergeFighterProgress(target,source){
 export function fighterStats(f,_supportPower=0){
   const level=f.level||1,star=f.star||1,m=f.mods||makeFighterMods();let s;
   const lvDmg=1+(level-1)*.15,lvCd=Math.pow(.94,level-1),starDmg=1+(star-1)*.09;
-  if(f.type==='scatter')s={cd:1.15,damage:.48,shots:2+star,spread:.18,kind:'normal',hitCount:star>=4?2:1,trailScale:1,explosive:0,bulletSpeedScale:1};
-  else if(f.type==='laser')s={cd:1.70,damage:.42,shots:1,spread:0,kind:'laser',hitCount:2+Math.floor(star/2),trailScale:1.15,explosive:0,bulletSpeedScale:1.2};
-  else if(f.type==='pierce')s={cd:1.28,damage:.78,shots:star>=4?2:1,spread:star>=4?.04:0,kind:'pierce',hitCount:3+Math.floor((star-1)/2),trailScale:1.05,explosive:0,bulletSpeedScale:1.05};
-  else if(f.type==='aoe')s={cd:1.62,damage:.60,shots:1,spread:0,kind:'aoe',hitCount:1+Math.floor((star-1)/2),trailScale:1.05,explosive:1+(star-1)*.45,bulletSpeedScale:.85};
+  if(f.type==='scatter')s={cd:1.06,damage:.54,shots:2+star,spread:.18,kind:'normal',hitCount:1+Math.floor((star-1)/2),trailScale:1,explosive:0,bulletSpeedScale:1};
+  else if(f.type==='laser')s={cd:1.56,damage:.48,shots:1,spread:0,kind:'laser',hitCount:3+Math.floor(star/2),trailScale:1.15,explosive:0,bulletSpeedScale:1.2};
+  else if(f.type==='pierce')s={cd:1.18,damage:.86,shots:star>=4?2:1,spread:star>=4?.04:0,kind:'pierce',hitCount:4+Math.floor((star-1)/2),trailScale:1.05,explosive:0,bulletSpeedScale:1.05};
+  else if(f.type==='aoe')s={cd:1.50,damage:.68,shots:1,spread:0,kind:'aoe',hitCount:2+Math.floor((star-1)/2),trailScale:1.05,explosive:1+(star-1)*.45,bulletSpeedScale:.85};
   else s={cd:999,damage:0,shots:0,spread:0,kind:'support',hitCount:0,trailScale:1,explosive:0,bulletSpeedScale:1};
 
   s.damage*=lvDmg*starDmg*(1+(m.damage||0)*.18);
@@ -58,7 +58,7 @@ export function fighterStats(f,_supportPower=0){
 
   if(f.evolution==='prism'){s.shots+=1;s.spread=.15;s.hitCount+=1}
   if(f.evolution==='storm'){s.shots+=4;s.damage*=.76;s.cd*=.82;s.spread=.20}
-  if(f.evolution==='prismbeam'){s.hitCount+=1;s.trailScale=1.45;s.damage*=1.08}
+  if(f.evolution==='prismbeam'){s.hitCount+=2;s.trailScale=1.45;s.damage*=1.08}
   if(f.evolution==='overdrive'){s.cd*=.72;s.damage*=1.36;s.hitCount+=1;s.trailScale=1.2}
   if(f.evolution==='railgun'){s.cd*=1.15;s.damage*=1.58;s.hitCount+=2;s.trailScale=1.2}
   if(f.evolution==='needle'){s.cd*=.78;s.damage*=.74;s.shots+=1;s.spread=.05;s.hitCount+=1}

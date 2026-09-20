@@ -1,5 +1,6 @@
 import { BALANCE } from './config.js';
 import { FIGHTER_TYPES, fighterEvolutionMeta, fighterStats, fighterCanEvolve, fighterIsMax, fighterUpgradeCost, supportFieldType } from './fighters.js';
+import { LEVELS, getLevel, loadProgress, isLevelUnlocked } from './data/levels.js';
 
 export class UI{
   constructor(){
@@ -10,7 +11,9 @@ export class UI{
     this.banner=$('#banner');this.buyBtn=$('#battleBuyBtn');this.buyCost=$('#battleBuyCost');this.repairBtn=$('#battleRepairBtn');this.repairCost=$('#battleRepairCost');this.fighterActionBtn=$('#battleEvolveBtn');
     this.fighterCount=$('#fighterCount');this.selectedName=$('#selectedFighterName');this.selectedStars=$('#selectedFighterStars');this.selectedTrait=$('#selectedFighterTrait');this.waveStatus=$('#waveStatus');this.dock=$('#battleDock');this.placementHint=$('#placementHint');
     this.leftBadge=$('.left-badge');this.rightBadge=$('.right-badge');this.slow=$('#slowWallLevel');this.burn=$('#burnWallLevel');this.cd=$('#cdValue');this.bounce=$('#bounceValue');this.damage=$('#damageValue');
-    this.soundToggle=$('#soundToggle');this.startBtn=$('#startBtn');this.restartBtn=$('#restartBtn');this.victoryRestartBtn=$('#victoryRestartBtn');
+    this.soundToggle=$('#soundToggle');this.startBtn=$('#startBtn');this.restartBtn=$('#restartBtn');
+    this.levelSelect=$('#levelSelect');this.levelDetail=$('#levelDetail');this.stageValue=$('#stageValue');
+    this.victoryEyebrow=$('#victoryEyebrow');this.victoryTitle=$('#victoryTitle');this.victoryMark=$('#victoryMark');this.victoryCopy=$('#victoryCopy');this.victoryNextBtn=$('#victoryNextBtn');this.victoryMenuBtn=$('#victoryMenuBtn');this.gameoverMenuBtn=$('#gameoverMenuBtn');this.gameoverEyebrow=$('#gameoverEyebrow');
     this.upgradeEyebrow=$('#upgradeEyebrow');this.upgradeTitle=$('#upgradeTitle');this.upgradeSubtitle=$('#upgradeSubtitle');this.upgradeList=$('#upgradeList');
     this.recruitEyebrow=$('#recruitEyebrow');this.recruitTitle=$('#recruitTitle');this.recruitDesc=$('#recruitDesc');this.recruitList=$('#recruitList');this.recruitCancel=$('#recruitCancelBtn');
     this.evolveList=$('#evolveList');this.resultScore=$('#resultScore');this.resultWave=$('#resultWave');this.victoryScore=$('#victoryScore');
@@ -18,8 +21,9 @@ export class UI{
   }
 
   bind(handlers){
-    this.onStart=handlers.onStart;this.onRestart=handlers.onRestart;this.onUpgrade=handlers.onUpgrade;this.onSoundToggle=handlers.onSoundToggle;this.onOpenRecruit=handlers.onOpenRecruit;this.onChooseRecruit=handlers.onChooseRecruit;this.onCancelRecruit=handlers.onCancelRecruit;this.onFighterAction=handlers.onFighterAction;this.onChooseEvolve=handlers.onChooseEvolve;this.onCancelEvolve=handlers.onCancelEvolve;this.onRepairCore=handlers.onRepairCore;
-    this.startBtn?.addEventListener('click',()=>this.onStart?.());this.restartBtn?.addEventListener('click',()=>this.onRestart?.());this.victoryRestartBtn?.addEventListener('click',()=>this.onRestart?.());this.soundToggle?.addEventListener('click',()=>this.onSoundToggle?.());
+    this.onStart=handlers.onStart;this.onRestart=handlers.onRestart;this.onUpgrade=handlers.onUpgrade;this.onSoundToggle=handlers.onSoundToggle;this.onOpenRecruit=handlers.onOpenRecruit;this.onChooseRecruit=handlers.onChooseRecruit;this.onCancelRecruit=handlers.onCancelRecruit;this.onFighterAction=handlers.onFighterAction;this.onChooseEvolve=handlers.onChooseEvolve;this.onCancelEvolve=handlers.onCancelEvolve;this.onRepairCore=handlers.onRepairCore;this.onSelectLevel=handlers.onSelectLevel;this.onMenu=handlers.onMenu;this.onVictoryNext=handlers.onVictoryNext;
+    this.startBtn?.addEventListener('click',()=>this.onStart?.());this.restartBtn?.addEventListener('click',()=>this.onRestart?.());this.soundToggle?.addEventListener('click',()=>this.onSoundToggle?.());
+    this.victoryNextBtn?.addEventListener('click',()=>this.onVictoryNext?.());this.victoryMenuBtn?.addEventListener('click',()=>this.onMenu?.());this.gameoverMenuBtn?.addEventListener('click',()=>this.onMenu?.());
     this.buyBtn?.addEventListener('click',()=>this.onOpenRecruit?.());this.fighterActionBtn?.addEventListener('click',()=>this.onFighterAction?.());this.repairBtn?.addEventListener('click',()=>this.onRepairCore?.());this.recruitCancel?.addEventListener('click',()=>this.onCancelRecruit?.());document.querySelector('#evolveCancelBtn')?.addEventListener('click',()=>this.onCancelEvolve?.());
   }
 
@@ -30,7 +34,8 @@ export class UI{
 
   sync(s){
     const g=s.game,f=this.selected(s),stats=f?fighterStats(f,0):null;
-    this.setText(this.score,'score',String(Math.floor(g.score)).padStart(6,'0'));this.setText(this.coins,'coins',String(g.coins));this.setText(this.wave,'wave',`${g.wave}/${g.maxWave}`);
+    const level=getLevel(g.levelId||g.selectedLevelId||1),stage=`S${String(level.id).padStart(2,'0')}`;
+    this.setText(this.score,'score',String(Math.floor(g.score)).padStart(6,'0'));this.setText(this.coins,'coins',String(g.coins));this.setText(this.wave,'wave',`${g.wave||1}/${g.maxWave||level.waves}`);this.setText(this.stageValue,'stage',stage);
     const xp=Math.min(100,g.nextXp?g.xp/g.nextXp*100:0);if(this.last.xp!==xp){this.last.xp=xp;this.xpFill.style.width=`${xp}%`}if(this.last.core!==g.core){this.last.core=g.core;this.coreDots.forEach((d,i)=>d.classList.toggle('active',i<g.core))}
 
     this.setText(this.slow,'slow','LEFT / RIGHT / TOP');this.setText(this.burn,'burn','PURE REFLECT');this.leftBadge?.classList.remove('buff-active');this.rightBadge?.classList.remove('buff-active');
@@ -38,9 +43,9 @@ export class UI{
     this.setText(this.bounce,'bounce',stats&&f?.type!=='support'?`HIT ${stats.hitCount}`:f?.type==='support'?`FIELD ${(supportFieldType(f)||'ice').toUpperCase()}`:'PINBALL LOOP');
     this.setText(this.damage,'damage',f?.type!=='support'&&stats?`DMG ${stats.damage.toFixed(2)} · SHOT ${stats.shots}`:'WALLS REFLECT FOREVER · BOTTOM DROPS');
 
-    if(this.last.state!==g.state){this.last.state=g.state;this.title?.classList.toggle('visible',g.state==='title');this.upgrade?.classList.toggle('visible',g.state==='upgrade');this.recruit?.classList.toggle('visible',g.state==='recruit');this.evolve?.classList.toggle('visible',g.state==='evolve');this.gameover?.classList.toggle('visible',g.state==='gameover');this.victory?.classList.toggle('visible',g.state==='victory')}
+    if(this.last.state!==g.state){this.last.state=g.state;this.title?.classList.toggle('visible',g.state==='title');this.upgrade?.classList.toggle('visible',g.state==='upgrade');this.recruit?.classList.toggle('visible',g.state==='recruit');this.evolve?.classList.toggle('visible',g.state==='evolve');this.gameover?.classList.toggle('visible',g.state==='gameover');this.victory?.classList.toggle('visible',g.state==='victory');if(g.state==='title')this.renderLevelSelect(g)}
     if(g.bannerT>0){this.setText(this.banner,'banner',g.banner);this.banner?.classList.add('visible')}else this.banner?.classList.remove('visible');
-    if(g.state==='gameover'){this.setText(this.resultScore,'resultScore',String(Math.floor(g.score)).padStart(6,'0'));this.setText(this.resultWave,'resultWave',`到达 WAVE ${g.wave}/${g.maxWave}`)}
+    if(g.state==='gameover'){this.setText(this.gameoverEyebrow,'goEye',`${stage} FAILED`);this.setText(this.resultScore,'resultScore',String(Math.floor(g.score)).padStart(6,'0'));this.setText(this.resultWave,'resultWave',`${level.name} · 到达 WAVE ${g.wave}/${g.maxWave}`)}
     if(g.state==='victory')this.setText(this.victoryScore,'victoryScore',String(Math.floor(g.score)).padStart(6,'0'));
     this.syncBattleControls(s);
   }
@@ -49,7 +54,7 @@ export class UI{
     const g=s.game,active=['playing','intermission','placing'].includes(g.state);this.dock?.classList.toggle('visible',active);this.placementHint?.classList.toggle('visible',g.state==='placing');
     this.setText(this.buyCost,'buyCost',`${g.shopCost}¢`);if(this.buyBtn)this.buyBtn.disabled=!['playing','intermission'].includes(g.state)||g.coins<g.shopCost||s.fighters.battle.length>=BALANCE.maxFighters;
     this.setText(this.repairCost,'repairCost',`${g.repairCost}¢`);if(this.repairBtn)this.repairBtn.disabled=!['playing','intermission'].includes(g.state)||g.core>=BALANCE.maxCore||g.coins<g.repairCost;
-    this.setText(this.fighterCount,'fighterCount',`${s.fighters.battle.length}/${BALANCE.maxFighters}`);this.setText(this.waveStatus,'waveStatus',g.state==='intermission'?`NEXT ${Math.max(0,g.intermissionTimer).toFixed(1)}s`:`WAVE ${g.wave}/${g.maxWave}`);
+    this.setText(this.fighterCount,'fighterCount',`${s.fighters.battle.length}/${BALANCE.maxFighters}`);this.setText(this.waveStatus,'waveStatus',g.state==='intermission'?`NEXT ${Math.max(0,g.intermissionTimer).toFixed(1)}s`:`S${String(g.levelId||1).padStart(2,'0')} · ${g.wave}/${g.maxWave}`);
     const f=this.selected(s);if(!f){this.selectedName.textContent='点击战机选择';this.selectedStars.textContent='';this.selectedTrait.textContent='星级靠合成 · 等级靠金币';this.fighterActionBtn.hidden=true;return}
     const m=FIGHTER_TYPES[f.type],e=fighterEvolutionMeta(f),stats=fighterStats(f,0);this.selectedName.textContent=e?e.tag:m.short;this.selectedStars.textContent=`${'★'.repeat(f.star||1)} · LV.${f.level}`;
     this.selectedTrait.textContent=f.type==='support'?`场域 ${supportFieldType(f).toUpperCase()} · 子弹穿过才会获得 Buff`:`角度 ${Math.round(f.aimAngle*180/Math.PI)}° · HIT ${stats.hitCount}`;
@@ -73,5 +78,36 @@ export class UI{
   }
 
   showEvolve(s,f,choices){this.evolveList.innerHTML='';const m=FIGHTER_TYPES[f.type];document.querySelector('#evolveSource').textContent=`${m.short} · ${'★'.repeat(f.star||1)} · LV.4`;choices.forEach((e,i)=>{const b=document.createElement('button');b.className='choice-card evolve-card';b.style.setProperty('--fighter',m.accent);b.innerHTML=`<span class="choice-no">0${i+1}</span><span class="choice-icon">${m.icon}</span><span class="choice-kicker">EVOLUTION</span><strong>${e.name}</strong><p>${e.desc}</p><span class="choice-action">EVOLVE · ${BALANCE.evolveCost}¢</span>`;b.onclick=()=>this.onChooseEvolve?.(i);this.evolveList.appendChild(b)})}
-  showVictory(s){this.victoryScore.textContent=String(Math.floor(s.game.score)).padStart(6,'0')}
+  showVictory(s,level,next){
+    const id=String(level?.id||s.game.levelId||1).padStart(2,'0');
+    this.victoryScore.textContent=String(Math.floor(s.game.score)).padStart(6,'0');
+    if(this.victoryEyebrow)this.victoryEyebrow.textContent=`STAGE ${id} CLEAR`;
+    if(this.victoryTitle)this.victoryTitle.textContent=next?'折射成功':'全关通关';
+    if(this.victoryMark)this.victoryMark.textContent=id;
+    if(this.victoryCopy)this.victoryCopy.textContent=next?`你撑过了「${level?.name||'本关'}」的 ${level?.waves||s.game.maxWave} 波怪潮。`:'15 关全部打通。奇点已经被你折穿。';
+    if(this.victoryNextBtn){this.victoryNextBtn.hidden=!next;this.victoryNextBtn.textContent=next?`下一关 · ${next.name}`:'下一关'}
+  }
+
+  renderLevelSelect(g){
+    if(!this.levelSelect)return;
+    const progress=loadProgress(), selected=g?.selectedLevelId||progress.last||1, acts=[1,2,3];
+    this.levelSelect.innerHTML='';
+    for(const act of acts){
+      const levels=LEVELS.filter(l=>l.act===act), wrap=document.createElement('div');wrap.className=`level-act act-${act}`;
+      const label=document.createElement('div');label.className='level-act-label';label.innerHTML=`<span>ACT ${act} · ${levels[0].actName}</span><em>${levels[0].waves} 波</em>`;
+      const row=document.createElement('div');row.className='level-row';
+      for(const level of levels){
+        const unlocked=isLevelUnlocked(level.id, progress.cleared), cleared=progress.cleared>=level.id;
+        const b=document.createElement('button');b.type='button';b.className=`level-cell${unlocked?'':' lock'}${cleared?' cleared':''}${selected===level.id?' selected':''}`;
+        b.disabled=!unlocked;b.dataset.level=String(level.id);
+        b.innerHTML=`<b>${String(level.id).padStart(2,'0')}</b><span>${unlocked?level.name:'锁定'}</span>`;
+        b.onclick=()=>this.onSelectLevel?.(level.id);
+        row.appendChild(b);
+      }
+      wrap.appendChild(label);wrap.appendChild(row);this.levelSelect.appendChild(wrap);
+    }
+    const level=getLevel(selected);
+    if(this.levelDetail)this.levelDetail.textContent=`${level.tag} · ${level.waves} 波 · ${level.intro}`;
+    if(this.startBtn)this.startBtn.disabled=!isLevelUnlocked(selected, progress.cleared);
+  }
 }

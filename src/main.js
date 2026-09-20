@@ -1,4 +1,4 @@
-import { VIEW, BALANCE } from './config.js';
+import { VIEW } from './config.js';
 import { createState } from './state.js';
 import { UI } from './ui.js';
 import { Renderer } from './renderer.js';
@@ -6,13 +6,17 @@ import { Game } from './game.js';
 import { AudioEngine } from './audio.js';
 import { GMPanel } from './gm.js';
 import { RuntimePerformance } from './core/runtime-performance.js';
+import { getLevel, loadProgress, isLevelUnlocked } from './data/levels.js';
 
 const canvas=document.querySelector('#game'),state=createState(),ui=new UI(),audio=new AudioEngine(),game=new Game(state,ui,audio),renderer=new Renderer(canvas,state),gm=new GMPanel(game,state,audio),runtimePerf=new RuntimePerformance(state);
+const progress=loadProgress(), startId=isLevelUnlocked(progress.last, progress.cleared)?progress.last:Math.min(progress.cleared+1,15);
+state.game.selectedLevelId=startId;state.game.levelId=startId;state.game.maxWave=getLevel(startId).waves;
 ui.bind({
-  onStart:()=>{audio.ensure();audio.uiConfirm();game.reset()},onRestart:()=>{audio.ensure();audio.uiConfirm();game.reset()},onUpgrade:i=>game.chooseUpgrade(i),onSoundToggle:()=>ui.setSoundEnabled(audio.toggle()),
+  onStart:()=>{audio.ensure();audio.uiConfirm();game.reset(state.game.selectedLevelId)},onRestart:()=>{audio.ensure();audio.uiConfirm();game.reset(state.game.levelId)},onUpgrade:i=>game.chooseUpgrade(i),onSoundToggle:()=>ui.setSoundEnabled(audio.toggle()),
   onOpenRecruit:()=>{audio.ensure();game.openRecruit({free:false,source:'shop'})},onChooseRecruit:i=>game.chooseRecruit(i),onCancelRecruit:()=>game.cancelRecruit(),onFighterAction:()=>game.openSelectedFighterAction(),onChooseEvolve:i=>game.chooseEvolution(i),onCancelEvolve:()=>game.cancelEvolve(),onRepairCore:()=>game.repairCore(),
+  onSelectLevel:id=>{audio.ensure();game.selectLevel(id)},onMenu:()=>{audio.ensure();audio.uiConfirm();game.backToTitle()},onVictoryNext:()=>{audio.ensure();audio.uiConfirm();game.startNextLevel()},
 });
-ui.setSoundEnabled(audio.isEnabled());ui.sync(state);
+ui.setSoundEnabled(audio.isEnabled());ui.renderLevelSelect(state.game);ui.sync(state);
 function pointerPos(e){const r=canvas.getBoundingClientRect();return{x:(e.clientX-r.left)/r.width*VIEW.width,y:(e.clientY-r.top)/r.height*VIEW.height}}
 let drag=null;
 canvas.addEventListener('pointerdown',e=>{
@@ -39,6 +43,6 @@ function endPointer(){
 canvas.addEventListener('pointerup',endPointer);canvas.addEventListener('pointercancel',endPointer);
 addEventListener('keydown',e=>{
   audio.ensure();if(e.code==='F2'||e.code==='Backquote'){e.preventDefault();gm.toggle();return}if(e.code==='Escape'&&gm.open){gm.toggle(false);return}const tag=document.activeElement?.tagName;if(['INPUT','SELECT','TEXTAREA'].includes(tag))return;
-  if(e.key.toLowerCase()==='r')game.reset();if(state.game.state==='upgrade'&&['1','2','3'].includes(e.key))game.chooseUpgrade(Number(e.key)-1);if(state.game.state==='recruit'&&['1','2','3'].includes(e.key))game.chooseRecruit(Number(e.key)-1);if(state.game.state==='evolve'&&['1','2'].includes(e.key))game.chooseEvolution(Number(e.key)-1);if(state.game.state==='title'&&(e.code==='Space'||e.code==='Enter'))game.reset();if(['gameover','victory'].includes(state.game.state)&&(e.code==='Space'||e.code==='Enter'))game.reset();
+  if(e.key.toLowerCase()==='r'&&!['title','upgrade','recruit','evolve'].includes(state.game.state))game.reset(state.game.levelId);if(state.game.state==='upgrade'&&['1','2','3'].includes(e.key))game.chooseUpgrade(Number(e.key)-1);if(state.game.state==='recruit'&&['1','2','3'].includes(e.key))game.chooseRecruit(Number(e.key)-1);if(state.game.state==='evolve'&&['1','2'].includes(e.key))game.chooseEvolution(Number(e.key)-1);if(state.game.state==='title'&&(e.code==='Space'||e.code==='Enter'))game.reset(state.game.selectedLevelId);if(state.game.state==='gameover'&&(e.code==='Space'||e.code==='Enter'))game.reset(state.game.levelId);if(state.game.state==='victory'&&(e.code==='Space'||e.code==='Enter'))game.startNextLevel();
 });
 let last=performance.now();function loop(now){const dt=Math.min(.033,(now-last)/1000);last=now;const frameStart=performance.now();game.update(dt*(state.game.gmTimeScale||1));renderer.draw();ui.sync(state);gm.sync();runtimePerf.sample(performance.now()-frameStart,dt);requestAnimationFrame(loop)}requestAnimationFrame(loop);

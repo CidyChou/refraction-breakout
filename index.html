@@ -35,6 +35,7 @@
               <button data-gm="invincible" id="gmInvincibleBtn">核心无敌</button>
             </div>
             <label class="gm-inline"><span>跳转波次</span><input id="gmWaveInput" type="number" min="1" max="40" value="10"><button id="gmJumpWave" type="button">GO</button></label>
+            <div class="gm-action-grid compact"><button data-gm="unlock-levels">解锁全部关卡</button></div>
             <label class="gm-inline"><span>增加 XP</span><input id="gmXpInput" type="number" min="1" max="999" value="10"><button id="gmAddXp" type="button">+XP</button></label>
           </section>
 
@@ -68,7 +69,7 @@
 
       <div class="hud top-hud" id="hud">
         <div class="hud-card score-card"><span class="hud-label">SCORE</span><strong id="scoreValue">000000</strong><small class="coin-line">COIN <b id="coinValue">0</b>¢</small></div>
-        <div class="hud-center"><div class="wave-pill"><span>WAVE</span><strong id="waveValue">1/40</strong></div><div class="xp-track"><i id="xpFill"></i></div></div>
+        <div class="hud-center"><div class="wave-pill"><span id="stageValue">S01</span><strong id="waveValue">1/10</strong></div><div class="xp-track"><i id="xpFill"></i></div></div>
         <div class="hud-card core-card"><span class="hud-label">CORE</span><div class="core-dots" id="coreDots"></div></div>
       </div>
 
@@ -88,18 +89,19 @@
         </div>
         <button class="dock-action evolve" id="battleEvolveBtn" hidden>UPGRADE <b>7¢</b></button>
         <button class="dock-action repair" id="battleRepairBtn"><span>CORE +1</span><strong id="battleRepairCost">15¢</strong></button>
-        <div class="wave-status" id="waveStatus">WAVE 1/40</div>
+        <div class="wave-status" id="waveStatus">S01 · WAVE 1/10</div>
       </div>
       <div class="placement-hint" id="placementHint"><strong>PLACE FIGHTER</strong><span>移动到战场位置 · 点击放置</span></div>
 
       <section class="screen-overlay visible" id="titleScreen">
         <div class="title-content">
-          <div class="eyebrow">40-WAVE REFLECTION ROGUELITE</div>
+          <div class="eyebrow">15-STAGE REFLECTION</div>
           <h1>折射突围</h1>
-          <p class="subtitle">开局先三选一战机；战斗中自由布置、独立瞄准，敌人从顶部传送门持续涌入。</p>
-          <div class="legend-row"><div class="legend-chip slow"><b>战机</b><span>决定攻击形态与进化路线</span></div><div class="legend-chip burn"><b>场域</b><span>子弹穿过装置周围场域时才获得 Buff</span></div></div>
-          <button class="primary-btn" id="startBtn">开始 40 波突围</button>
-          <p class="microcopy">击杀经验送随机战机 · 金币升级单机 · 同类型同星拖拽升星 · 弹丸命中次数用完或掉出底部才会消失</p>
+          <p class="subtitle">短关开局，强敌后置。通关解锁下一关。</p>
+          <div class="level-select" id="levelSelect"></div>
+          <p class="level-detail" id="levelDetail">选择一关开始</p>
+          <button class="primary-btn" id="startBtn">开始本关</button>
+          <p class="microcopy">1–5 关 10 波 · 6–10 关 20 波 · 11–15 关 40 波</p>
         </div>
       </section>
 
@@ -150,11 +152,11 @@
       </section>
 
       <section class="screen-overlay" id="gameoverScreen">
-        <div class="modal-panel result-panel"><div class="eyebrow">RUN FAILED</div><h2>核心失守</h2><div class="result-score" id="resultScore">000000</div><p id="resultWave">到达 WAVE 1/40</p><button class="primary-btn" id="restartBtn">重新开始</button></div>
+        <div class="modal-panel result-panel"><div class="eyebrow" id="gameoverEyebrow">RUN FAILED</div><h2>核心失守</h2><div class="result-score" id="resultScore">000000</div><p id="resultWave">到达 WAVE 1/10</p><div class="result-actions"><button class="primary-btn" id="restartBtn">重试本关</button><button class="ghost-btn" id="gameoverMenuBtn">返回选关</button></div></div>
       </section>
 
       <section class="screen-overlay victory-screen" id="victoryScreen">
-        <div class="modal-panel result-panel victory-panel"><div class="eyebrow">CHAPTER 01 CLEAR</div><h2>折射成功</h2><div class="victory-mark">40</div><div class="result-score" id="victoryScore">000000</div><p>你撑过了完整 40 波怪潮。</p><button class="primary-btn" id="victoryRestartBtn">再开一局</button></div>
+        <div class="modal-panel result-panel victory-panel"><div class="eyebrow" id="victoryEyebrow">STAGE 01 CLEAR</div><h2 id="victoryTitle">折射成功</h2><div class="victory-mark" id="victoryMark">01</div><div class="result-score" id="victoryScore">000000</div><p id="victoryCopy">你撑过了本关怪潮。</p><div class="result-actions"><button class="primary-btn" id="victoryNextBtn">下一关</button><button class="ghost-btn" id="victoryMenuBtn">返回选关</button></div></div>
       </section>
     </section>
   </main>
